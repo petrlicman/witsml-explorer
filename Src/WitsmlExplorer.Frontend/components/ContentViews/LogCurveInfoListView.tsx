@@ -4,12 +4,9 @@ import { timeFromMinutesToMilliseconds } from "../../contexts/curveThreshold";
 import NavigationContext from "../../contexts/navigationContext";
 import OperationContext from "../../contexts/operationContext";
 import OperationType from "../../contexts/operationType";
-import { ComponentType } from "../../models/componentType";
 import LogCurveInfo, { isNullOrEmptyIndex } from "../../models/logCurveInfo";
-import LogObject from "../../models/logObject";
 import { measureToString } from "../../models/measure";
 import { truncateAbortHandler } from "../../services/apiClient";
-import ComponentService from "../../services/componentService";
 import { getContextMenuPosition } from "../ContextMenus/ContextMenu";
 import LogCurveInfoContextMenu, {
   LogCurveInfoContextMenuProps
@@ -22,10 +19,14 @@ import {
   ContentTableRow,
   ContentType
 } from "./table";
+import LogObjectService from "../../services/logObjectService";
+import Wellbore from "../../models/wellbore";
+import Well from "../../models/well";
 
 export interface LogCurveInfoRow extends ContentTableRow {
   uid: string;
   mnemonic: string;
+  logName: string;
   minIndex: number | Date;
   maxIndex: number | Date;
   classWitsml: string;
@@ -49,11 +50,10 @@ export const LogCurveInfoListView = (): React.ReactElement => {
     selectedServer,
     selectedWell,
     selectedWellbore,
-    selectedObject,
+    selectedLogs,
     selectedCurveThreshold,
     servers
   } = navigationState;
-  const selectedLog = selectedObject as LogObject;
   const { dispatchOperation } = useContext(OperationContext);
   const [logCurveInfoList, setLogCurveInfoList] = useState<LogCurveInfo[]>([]);
   const isDepthIndex = !!logCurveInfoList?.[0]?.maxDepthIndex;
@@ -62,17 +62,15 @@ export const LogCurveInfoListView = (): React.ReactElement => {
 
   useEffect(() => {
     setIsFetchingData(true);
-    if (selectedLog) {
+    if (selectedLogs && selectedLogs.length > 0) {
       const controller = new AbortController();
 
       const getLogCurveInfo = async () => {
-        const logCurveInfo = await ComponentService.getComponents(
+        const logCurveInfo = await LogObjectService.getMnemonicsInLogs(
           selectedWell.uid,
           selectedWellbore.uid,
-          selectedLog.uid,
-          ComponentType.Mnemonic,
-          undefined,
-          controller.signal
+          selectedLogs.map((x) => x.uid),
+          undefined
         );
         setLogCurveInfoList(logCurveInfo);
         setIsFetchingData(false);
@@ -84,7 +82,7 @@ export const LogCurveInfoListView = (): React.ReactElement => {
         controller.abort();
       };
     }
-  }, [selectedLog]);
+  }, [selectedLogs]);
 
   const onContextMenu = (
     event: React.MouseEvent<HTMLLIElement>,
@@ -95,7 +93,7 @@ export const LogCurveInfoListView = (): React.ReactElement => {
       checkedLogCurveInfoRows,
       dispatchOperation,
       dispatchNavigation,
-      selectedLog,
+      selectedLogs,
       selectedServer,
       servers
     };
@@ -137,12 +135,13 @@ export const LogCurveInfoListView = (): React.ReactElement => {
     return logCurveInfoList
       .map((logCurveInfo) => {
         const isActive =
-          selectedLog.objectGrowing &&
+          selectedLogs[0].objectGrowing &&
           calculateIsCurveActive(logCurveInfo, maxDepth);
         return {
-          id: `${selectedLog.uid}-${logCurveInfo.mnemonic}`,
+          id: `${selectedLogs[0].uid}-${logCurveInfo.mnemonic}`,
           uid: logCurveInfo.uid,
           mnemonic: logCurveInfo.mnemonic,
+          logName: logCurveInfo.logName,
           minIndex: isDepthIndex
             ? logCurveInfo.minDepthIndex
             : formatDateString(
@@ -161,7 +160,7 @@ export const LogCurveInfoListView = (): React.ReactElement => {
           unit: logCurveInfo.unit,
           sensorOffset: measureToString(logCurveInfo.sensorOffset),
           mnemAlias: logCurveInfo.mnemAlias,
-          logUid: selectedLog.uid,
+          logUid: selectedLogs[0].uid,
           wellUid: selectedWell.uid,
           wellboreUid: selectedWellbore.uid,
           wellName: selectedWell.name,
@@ -172,17 +171,22 @@ export const LogCurveInfoListView = (): React.ReactElement => {
         };
       })
       .sort((curve, curve2) => {
-        if (
-          curve.mnemonic.toLowerCase() === selectedLog.indexCurve?.toLowerCase()
-        ) {
-          return -1;
-        } else if (
-          curve2.mnemonic.toLowerCase() ===
-          selectedLog.indexCurve?.toLowerCase()
-        ) {
-          return 1;
+        if (selectedLogs.length == 1) {
+          if (
+            curve.mnemonic.toLowerCase() ===
+            selectedLogs[0].indexCurve?.toLowerCase()
+          ) {
+            return -1;
+          } else if (
+            curve2.mnemonic.toLowerCase() ===
+            selectedLogs[0].indexCurve?.toLowerCase()
+          ) {
+            return 1;
+          }
+          return curve.mnemonic.localeCompare(curve2.mnemonic);
+        } else {
+          return curve.logName.localeCompare(curve2.logName);
         }
-        return curve.mnemonic.localeCompare(curve2.mnemonic);
       });
   };
 
@@ -192,12 +196,33 @@ export const LogCurveInfoListView = (): React.ReactElement => {
       return !(selectedCurveThreshold.hideInactiveCurves && !isActive);
     };
   };
+  const ToolTip = (well: Well, wellBore: Wellbore): React.ReactNode => {
+    return (
+      <>
+        <div>Well UID: {well.uid}</div>
+        <div>Well name : {well.name}</div>
+        <div>WellBore UID : {wellBore.uid}</div>
+        <div>WellBore name : {wellBore.name}</div>
+      </>
+    );
+  };
 
   const columns: ContentTableColumn[] = [
     ...(!isDepthIndex
       ? [{ property: "isActive", label: "active", type: ContentType.String }]
       : []),
-    { property: "mnemonic", label: "mnemonic", type: ContentType.String },
+    {
+      property: "mnemonic",
+      label: "mnemonic",
+      type: ContentType.String,
+      toolTip: ToolTip(selectedWell, selectedWellbore)
+    },
+    {
+      property: "logName",
+      label: "log name",
+      type: ContentType.String,
+      toolTip: ToolTip(selectedWell, selectedWellbore)
+    },
     {
       property: "minIndex",
       label: "minIndex",
@@ -234,7 +259,7 @@ export const LogCurveInfoListView = (): React.ReactElement => {
     </CommonPanelContainer>
   ];
 
-  return selectedLog && !isFetchingData ? (
+  return selectedLogs && !isFetchingData ? (
     <ContentTable
       viewId={
         isDepthIndex ? "depthLogCurveInfoListView" : "timeLogCurveInfoListView"
@@ -245,7 +270,7 @@ export const LogCurveInfoListView = (): React.ReactElement => {
       onContextMenu={onContextMenu}
       checkableRows
       showRefresh
-      downloadToCsvFileName={`LogCurveInfo_${selectedLog.name}`}
+      downloadToCsvFileName={`LogCurveInfo_${selectedLogs[0].name}`}
     />
   ) : (
     <></>

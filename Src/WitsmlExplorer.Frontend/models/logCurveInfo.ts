@@ -4,6 +4,7 @@ import Measure from "./measure";
 export default interface LogCurveInfo {
   uid: string;
   mnemonic: string;
+  logName: string;
   minDateTimeIndex?: string;
   minDepthIndex?: string;
   maxDateTimeIndex?: string;

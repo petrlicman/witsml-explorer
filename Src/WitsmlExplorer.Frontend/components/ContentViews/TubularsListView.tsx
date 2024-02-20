@@ -33,7 +33,8 @@ export const TubularsListView = (): React.ReactElement => {
   ) => {
     const contextProps: ObjectContextMenuProps = {
       checkedObjects: tubulars,
-      wellbore: selectedWellbore
+      wellbore: selectedWellbore,
+      well: selectedWell
     };
     const position = getContextMenuPosition(event);
     dispatchOperation({

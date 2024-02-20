@@ -19,7 +19,7 @@ import { ObjectContextMenuProps, ObjectMenuItems } from "./ObjectMenuItems";
 const BhaRunContextMenu = (
   props: ObjectContextMenuProps
 ): React.ReactElement => {
-  const { checkedObjects, wellbore } = props;
+  const { checkedObjects, well, wellbore } = props;
   const { navigationState, dispatchNavigation } = useContext(NavigationContext);
   const { dispatchOperation } = useContext(OperationContext);
   const openInQueryView = useOpenInQueryView();
@@ -48,6 +48,7 @@ const BhaRunContextMenu = (
           dispatchOperation,
           dispatchNavigation,
           openInQueryView,
+          well,
           wellbore,
           []
         ),

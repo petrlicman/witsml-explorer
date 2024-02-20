@@ -10,6 +10,7 @@ export interface ContentTableColumn {
   label: string;
   type: ContentType;
   filterFn?: FilterFn<any>;
+  toolTip?: React.ReactNode;
 }
 
 export interface ContentTableRow {

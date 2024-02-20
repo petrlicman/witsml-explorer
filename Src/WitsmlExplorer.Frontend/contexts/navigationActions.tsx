@@ -67,6 +67,15 @@ export interface SelectLogTypeAction extends Action {
   payload: { well: Well; wellbore: Wellbore; logTypeGroup: any };
 }
 
+export interface SelectLogAction extends Action {
+  type: NavigationType.SelectLog;
+  payload: {
+    well: Well;
+    wellbore: Wellbore;
+    selectedLogs: ObjectOnWellbore[];
+  };
+}
+
 export interface SelectLogCurveInfoAction extends Action {
   type: NavigationType.ShowCurveValues;
   payload: { logCurveInfo: any };

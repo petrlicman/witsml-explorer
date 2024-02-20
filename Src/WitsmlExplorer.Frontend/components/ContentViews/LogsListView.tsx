@@ -6,7 +6,6 @@ import NavigationType from "../../contexts/navigationType";
 import OperationContext from "../../contexts/operationContext";
 import OperationType from "../../contexts/operationType";
 import LogObject from "../../models/logObject";
-import { ObjectType } from "../../models/objectType";
 import {
   calculateLogTypeId,
   calculateLogTypeTimeId
@@ -65,6 +64,7 @@ export const LogsListView = (): React.ReactElement => {
   ) => {
     const contextProps: ObjectContextMenuProps = {
       checkedObjects: checkedLogObjectRows.map((row) => row.logObject),
+      well: selectedWell,
       wellbore: selectedWellbore
     };
     const position = getContextMenuPosition(event);
@@ -146,12 +146,11 @@ export const LogsListView = (): React.ReactElement => {
 
   const onSelect = (log: LogObjectRow) => {
     dispatchNavigation({
-      type: NavigationType.SelectObject,
+      type: NavigationType.SelectLog,
       payload: {
-        object: log.logObject,
         well: selectedWell,
         wellbore: selectedWellbore,
-        objectType: ObjectType.Log
+        selectedLogs: [log.logObject]
       }
     });
   };

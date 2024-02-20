@@ -214,7 +214,11 @@ const getObjectCrumb = (
   navigationState: NavigationState,
   dispatch: (action: NavigationAction) => void
 ) => {
-  return navigationState.selectedObject?.name
+  return navigationState.selectedLogs?.length > 1
+    ? {
+        name: navigationState.selectedLogs.length + " logs"
+      }
+    : navigationState.selectedObject?.name
     ? {
         name: navigationState.selectedObject.name,
         onClick: () =>

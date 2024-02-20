@@ -24,7 +24,7 @@ export const BhaRunsListView = (): React.ReactElement => {
     operationState: { timeZone, dateTimeFormat },
     dispatchOperation
   } = useContext(OperationContext);
-  const { selectedWellbore } = navigationState;
+  const { selectedWellbore, selectedWell } = navigationState;
   const [bhaRuns, setBhaRuns] = useState<BhaRun[]>([]);
 
   useEffect(() => {
@@ -107,7 +107,8 @@ export const BhaRunsListView = (): React.ReactElement => {
   ) => {
     const contextProps: ObjectContextMenuProps = {
       checkedObjects: checkedBhaRunRows.map((row) => row.bhaRun),
-      wellbore: selectedWellbore
+      wellbore: selectedWellbore,
+      well: selectedWell
     };
     const position = getContextMenuPosition(event);
     dispatchOperation({

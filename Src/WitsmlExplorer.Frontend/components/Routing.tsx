@@ -40,7 +40,8 @@ const Routing = (): React.ReactElement => {
     selectedWellbore,
     selectedObject,
     selectedObjectGroup,
-    selectedLogTypeGroup
+    selectedLogTypeGroup,
+    selectedLogs
   } = navigationState;
   const router = useRouter();
   const [isSyncingUrlAndState, setIsSyncingUrlAndState] =
@@ -74,7 +75,8 @@ const Routing = (): React.ReactElement => {
     selectedWellbore,
     selectedObject,
     selectedObjectGroup,
-    selectedLogTypeGroup
+    selectedLogTypeGroup,
+    selectedLogs
   ]);
 
   useEffect(() => {

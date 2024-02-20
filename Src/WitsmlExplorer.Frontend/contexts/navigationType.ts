@@ -8,6 +8,7 @@ enum NavigationType {
   SelectJobs = "SelectJobs",
   SelectQueryView = "SelectQueryView",
   SelectLogType = "SelectLogType",
+  SelectLog = "SelectLog",
   SelectObject = "SelectObject",
   SelectObjectGroup = "SelectObjectGroup",
   SetCurveThreshold = "SetCurveThreshold",

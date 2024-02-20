@@ -4,7 +4,6 @@ import NavigationType from "../../contexts/navigationType";
 import OperationContext from "../../contexts/operationContext";
 import OperationType from "../../contexts/operationType";
 import LogObject from "../../models/logObject";
-import { ObjectType } from "../../models/objectType";
 import Well from "../../models/well";
 import Wellbore from "../../models/wellbore";
 import {
@@ -38,6 +37,7 @@ const LogItem = (props: LogItemProps): React.ReactElement => {
     preventContextMenuPropagation(event);
     const contextProps: ObjectContextMenuProps = {
       checkedObjects: [log],
+      well,
       wellbore
     };
     const position = getContextMenuPosition(event);
@@ -60,8 +60,8 @@ const LogItem = (props: LogItemProps): React.ReactElement => {
       isActive={objectGrowing}
       onLabelClick={() =>
         dispatchNavigation({
-          type: NavigationType.SelectObject,
-          payload: { object: log, well, wellbore, objectType: ObjectType.Log }
+          type: NavigationType.SelectLog,
+          payload: { well, wellbore, selectedLogs: [log] }
         })
       }
     />

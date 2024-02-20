@@ -18,7 +18,12 @@ import {
   DeleteLogCurveValuesJob,
   IndexRange
 } from "../../models/jobs/deleteLogCurveValuesJob";
-import { CurveSpecification, LogData, LogDataRow } from "../../models/logData";
+import {
+  CurveSpecification,
+  LogData,
+  LogDataRequestQuery,
+  LogDataRow
+} from "../../models/logData";
 import LogObject, { indexToNumber } from "../../models/logObject";
 import { toObjectReference } from "../../models/objectOnWellbore";
 import { truncateAbortHandler } from "../../services/apiClient";
@@ -258,7 +263,8 @@ export const CurveValuesView = (): React.ReactElement => {
         columnOf: curveSpecification,
         property: curveSpecification.mnemonic,
         label: `${curveSpecification.mnemonic} (${curveSpecification.unit})`,
-        type: getColumnType(curveSpecification)
+        type: getColumnType(curveSpecification),
+        toolTip: "LogUid: " + curveSpecification.logUid
       };
     });
     const prevMnemonics = columns.map((column) => column.property);
@@ -292,10 +298,13 @@ export const CurveValuesView = (): React.ReactElement => {
     setAutoRefresh(false);
 
     if (selectedLogCurveInfo) {
-      getLogData(
-        String(selectedLogCurveInfo[0].minIndex),
-        String(selectedLogCurveInfo[0].maxIndex)
-      )
+      const minIndex = selectedLogCurveInfo.reduce(function (a, b) {
+        return a < b ? a : b;
+      });
+      const maxIndex = selectedLogCurveInfo.reduce(function (a, b) {
+        return a > b ? a : b;
+      });
+      getLogData(String(minIndex), String(maxIndex))
         .catch(truncateAbortHandler)
         .then(() => setIsLoading(false));
     }
@@ -366,23 +375,41 @@ export const CurveValuesView = (): React.ReactElement => {
   };
 
   const getLogData = async (startIndex: string, endIndex: string) => {
-    const mnemonics = selectedLogCurveInfo.map((lci) => lci.mnemonic);
+    //const mnemonics = selectedLogCurveInfo.map((lci) => lci.mnemonic);
+
+    function groupBy<T>(arr: T[], fn: (item: T) => any) {
+      return arr.reduce<Record<string, T[]>>((prev, curr) => {
+        const groupKey = fn(curr);
+        const group = prev[groupKey] || [];
+        group.push(curr);
+        return { ...prev, [groupKey]: group };
+      }, {});
+    }
+
+    const requestPayload = Object.entries(
+      groupBy(selectedLogCurveInfo, (i) => i.logName)
+    );
+    const payLoad: LogDataRequestQuery[] = requestPayload.map(
+      (i) =>
+        new LogDataRequestQuery(
+          i[0],
+          i[1].map((j) => j.mnemonic)
+        )
+    );
     const startIndexIsInclusive = !autoRefresh;
     controller.current = new AbortController();
 
     const logData: LogData = await LogObjectService.getLogData(
       selectedWell.uid,
       selectedWellbore.uid,
-      selectedLog.uid,
-      mnemonics,
+      payLoad,
       startIndexIsInclusive,
       startIndex,
       endIndex,
       controller.current.signal
     );
-    if (logData && logData.data) {
+    if (logData && logData.curveSpecifications && logData.data) {
       updateColumns(logData.curveSpecifications);
-
       const logDataRows = logData.data.map((data) => {
         const row: CurveValueRow = {
           id: String(data[selectedLog.indexCurve]),

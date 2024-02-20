@@ -437,6 +437,7 @@ export function getLogCurveInfo(
 ): LogCurveInfo {
   return {
     uid: "uid",
+    logName: "logName",
     mnemonic: "mnemonic",
     minDateTimeIndex: "",
     minDepthIndex: "",

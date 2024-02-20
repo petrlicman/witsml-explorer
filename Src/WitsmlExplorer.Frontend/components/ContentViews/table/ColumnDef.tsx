@@ -53,7 +53,7 @@ export const useColumnDef = (
         size: savedWidths
           ? savedWidths[column.label]
           : calculateColumnWidth(column.label, isCompactMode, column.type),
-        meta: { type: column.type },
+        meta: { type: column.type, toolTip: column.toolTip },
         sortingFn: getSortingFn(column.type),
         enableColumnFilter: column.filterFn != null,
         filterFn: column.filterFn,

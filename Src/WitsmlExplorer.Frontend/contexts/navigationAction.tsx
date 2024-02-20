@@ -18,6 +18,7 @@ import {
   CollapseTreeNodeChildrenAction,
   ExpandTreeNodesAction,
   SelectJobsAction,
+  SelectLogAction,
   SelectLogCurveInfoAction,
   SelectLogTypeAction,
   SelectObjectAction,
@@ -53,6 +54,7 @@ export type NavigationAction =
   | SelectJobsAction
   | SelectQueryViewAction
   | SelectLogTypeAction
+  | SelectLogAction
   | SelectLogCurveInfoAction
   | SelectWellAction
   | SelectWellboreAction

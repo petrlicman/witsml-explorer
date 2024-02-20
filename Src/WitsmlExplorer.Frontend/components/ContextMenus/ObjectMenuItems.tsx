@@ -27,9 +27,13 @@ import { onClickCopyToServer } from "./CopyToServer";
 import { copyObjectOnWellbore, pasteObjectOnWellbore } from "./CopyUtils";
 import NestedMenuItem from "./NestedMenuItem";
 import { useClipboardReferencesOfType } from "./UseClipboardReferences";
+import OperationType from "../../contexts/operationType";
+import NavigationType from "../../contexts/navigationType";
+import Well from "../../models/well";
 
 export interface ObjectContextMenuProps {
   checkedObjects: ObjectOnWellbore[];
+  well: Well;
   wellbore: Wellbore;
 }
 
@@ -40,6 +44,7 @@ export const ObjectMenuItems = (
   dispatchOperation: DispatchOperation,
   dispatchNavigation: DispatchNavigation,
   openInQueryView: OpenInQueryView,
+  well: Well,
   wellbore: Wellbore,
   extraMenuItems: React.ReactElement[]
 ): React.ReactElement[] => {
@@ -47,6 +52,25 @@ export const ObjectMenuItems = (
   const { selectedServer, servers } = navigationState;
 
   return [
+    // ------- OPEN
+    <MenuItem
+      key={"open"}
+      onClick={() =>
+        onClickOpen(
+          dispatchOperation,
+          dispatchNavigation,
+          well,
+          wellbore,
+          checkedObjects
+        )
+      }
+      disabled={checkedObjects.length == 0}
+    >
+      <StyledIcon name="folderOpen" color={colors.interactive.primaryResting} />
+      <Typography color={"primary"}>
+        {menuItemText("Open", objectType, null)}
+      </Typography>
+    </MenuItem>,
     <MenuItem
       key={"refresh"}
       onClick={() =>
@@ -204,4 +228,22 @@ export const ObjectMenuItems = (
       ]}
     </NestedMenuItem>
   ];
+};
+
+export const onClickOpen = (
+  dispatchOperation: DispatchOperation,
+  dispatchNavigation: DispatchNavigation,
+  well: Well,
+  wellbore: Wellbore,
+  checkedItems: ObjectOnWellbore[]
+) => {
+  dispatchOperation({ type: OperationType.HideContextMenu });
+  dispatchNavigation({
+    type: NavigationType.SelectLog,
+    payload: {
+      well: well,
+      wellbore: wellbore,
+      selectedLogs: checkedItems
+    }
+  });
 };

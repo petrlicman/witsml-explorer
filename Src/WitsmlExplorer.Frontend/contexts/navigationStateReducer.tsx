@@ -21,6 +21,7 @@ import {
   Action,
   CollapseTreeNodeChildrenAction,
   ExpandTreeNodesAction,
+  SelectLogAction,
   SelectLogCurveInfoAction,
   SelectLogTypeAction,
   SelectObjectAction,
@@ -82,6 +83,8 @@ const performNavigationAction = (
       return selectView(state, ViewFlags.Query);
     case NavigationType.SelectLogType:
       return selectLogType(state, action);
+    case NavigationType.SelectLog:
+      return selectLogs(state, action);
     case NavigationType.SelectObject:
       return selectObject(state, action);
     case NavigationType.SelectObjectGroup:
@@ -337,6 +340,32 @@ const selectLogType = (
       ? toggleTreeNode(expandedTreeNodes, logTypeGroup)
       : expandedTreeNodes,
     currentProperties: getWellboreProperties(wellbore)
+  };
+};
+
+const selectLogs = (
+  state: NavigationState,
+  { payload }: SelectLogAction
+): NavigationState => {
+  const { well, wellbore, selectedLogs } = payload;
+  const object = selectedLogs[0];
+  const logTypeGroup = calculateLogTypeId(
+    wellbore,
+    (object as LogObject).indexType
+  );
+  return {
+    ...state,
+    ...allDeselected,
+    selectedServer: state.selectedServer,
+    selectedWell: well,
+    selectedWellbore: wellbore,
+    selectedObjectGroup: ObjectType.Log,
+    selectedLogs: selectedLogs,
+    selectedLogTypeGroup: logTypeGroup,
+    selectedObject: object,
+    objectType: ObjectType.Log,
+    currentSelected: object,
+    currentProperties: getObjectOnWellboreProperties(object, ObjectType.Log)
   };
 };
 

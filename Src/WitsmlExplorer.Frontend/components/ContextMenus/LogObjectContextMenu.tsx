@@ -49,7 +49,7 @@ import { useClipboardComponentReferencesOfType } from "./UseClipboardComponentRe
 const LogObjectContextMenu = (
   props: ObjectContextMenuProps
 ): React.ReactElement => {
-  const { checkedObjects, wellbore } = props;
+  const { checkedObjects, well, wellbore } = props;
   const { navigationState, dispatchNavigation } = useContext(NavigationContext);
   const { servers, selectedServer } = navigationState;
   const { dispatchOperation } = useContext(OperationContext);
@@ -388,6 +388,7 @@ const LogObjectContextMenu = (
           dispatchOperation,
           dispatchNavigation,
           openInQueryView,
+          well,
           wellbore,
           extraMenuItems()
         )

@@ -22,6 +22,7 @@ import { Colors } from "../../../styles/Colors";
 import Icon from "../../../styles/Icons";
 import { useColumnDef } from "./ColumnDef";
 import Panel from "./Panel";
+import { Tooltip } from "@material-ui/core";
 import {
   initializeColumnVisibility,
   useStoreVisibilityEffect,
@@ -55,6 +56,11 @@ declare module "@tanstack/react-table" {
     previousIndex: number;
     setPreviousIndex: (index: number) => void;
     colors: Colors;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    toolTip?: React.ReactNode;
   }
 }
 
@@ -290,34 +296,39 @@ export const ContentTable = React.memo(
                 {columnItems.map((column) => {
                   const header = table.getLeafHeaders()[column.index];
                   return (
-                    <StyledTh
+                    <Tooltip
                       key={header.id}
-                      style={{
-                        width: header.getSize(),
-                        left:
-                          column.index < stickyLeftColumns ? column.start : 0
-                      }}
-                      sticky={column.index < stickyLeftColumns ? 1 : 0}
-                      colors={colors}
+                      title={header.column.columnDef?.meta?.toolTip || ""}
                     >
-                      <div
-                        role="button"
-                        style={{ cursor: "pointer" }}
-                        onClick={(e) => onHeaderClick(e, header)}
+                      <StyledTh
+                        key={header.id}
+                        style={{
+                          width: header.getSize(),
+                          left:
+                            column.index < stickyLeftColumns ? column.start : 0
+                        }}
+                        sticky={column.index < stickyLeftColumns ? 1 : 0}
+                        colors={colors}
                       >
-                        {header.column.getIsSorted() &&
-                          sortingIcons[
-                            header.column.getIsSorted() as SortDirection
-                          ]}
-                        {flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
+                        <div
+                          role="button"
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => onHeaderClick(e, header)}
+                        >
+                          {header.column.getIsSorted() &&
+                            sortingIcons[
+                              header.column.getIsSorted() as SortDirection
+                            ]}
+                          {flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                        </div>
+                        {header.id != selectId && header.id != expanderId && (
+                          <Resizer header={header} />
                         )}
-                      </div>
-                      {header.id != selectId && header.id != expanderId && (
-                        <Resizer header={header} />
-                      )}
-                    </StyledTh>
+                      </StyledTh>
+                    </Tooltip>
                   );
                 })}
                 <th style={{ width: `${spaceRight}px` }} />

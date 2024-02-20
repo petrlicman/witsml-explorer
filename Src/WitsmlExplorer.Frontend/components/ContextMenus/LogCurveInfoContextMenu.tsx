@@ -39,7 +39,7 @@ export interface LogCurveInfoContextMenuProps {
     action: DisplayModalAction | HideContextMenuAction | HideModalAction
   ) => void;
   dispatchNavigation: (action: SelectLogCurveInfoAction) => void;
-  selectedLog: LogObject;
+  selectedLogs: LogObject[];
   selectedServer: Server;
   servers: Server[];
 }
@@ -51,7 +51,7 @@ const LogCurveInfoContextMenu = (
     checkedLogCurveInfoRows,
     dispatchOperation,
     dispatchNavigation,
-    selectedLog,
+    selectedLogs,
     selectedServer,
     servers
   } = props;
@@ -60,7 +60,7 @@ const LogCurveInfoContextMenu = (
     dispatchOperation({ type: OperationType.HideContextMenu });
     const modalProps = {
       selectedLogCurveInfoRow: checkedLogCurveInfoRows,
-      selectedLog,
+      selectedLogs: selectedLogs,
       dispatchOperation,
       dispatchNavigation
     };
@@ -86,7 +86,7 @@ const LogCurveInfoContextMenu = (
     const logCurveInfoPropertiesModalProps = {
       logCurveInfo,
       dispatchOperation,
-      selectedLog
+      selectedLog: selectedLogs[0]
     };
     dispatchOperation({
       type: OperationType.DisplayModal,
@@ -98,7 +98,7 @@ const LogCurveInfoContextMenu = (
   };
 
   const onClickAnalyzeGaps = () => {
-    const logObject = selectedLog;
+    const logObject = selectedLogs[0];
     const mnemonics = checkedLogCurveInfoRows.map((lc) => lc.mnemonic);
     const analyzeGapModalProps: AnalyzeGapModalProps = { logObject, mnemonics };
     dispatchOperation({
@@ -110,7 +110,7 @@ const LogCurveInfoContextMenu = (
 
   const toDelete = createComponentReferences(
     checkedLogCurveInfoRows.map((lc) => lc.mnemonic),
-    selectedLog,
+    selectedLogs[0],
     ComponentType.Mnemonic
   );
   return (
@@ -133,7 +133,7 @@ const LogCurveInfoContextMenu = (
             copyComponents(
               selectedServer,
               checkedLogCurveInfoRows.map((lc) => lc.mnemonic),
-              selectedLog,
+              selectedLogs[0],
               dispatchOperation,
               ComponentType.Mnemonic
             )
@@ -197,7 +197,7 @@ const LogCurveInfoContextMenu = (
                 onClickShowObjectOnServer(
                   dispatchOperation,
                   server,
-                  selectedLog,
+                  selectedLogs[0],
                   ObjectType.Log
                 )
               }

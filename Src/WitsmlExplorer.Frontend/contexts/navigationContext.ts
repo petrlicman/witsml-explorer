@@ -52,6 +52,7 @@ export interface NavigationState {
   selectedLogTypeGroup: string;
   selectedObjectGroup: ObjectType;
   selectedObject: ObjectOnWellbore;
+  selectedLogs: LogObject[];
   selectedLogCurveInfo: LogCurveInfoRow[];
   servers: Server[];
   currentSelected: Selectable;
@@ -80,6 +81,7 @@ export const EMPTY_NAVIGATION_STATE: NavigationState = {
   selectedLogTypeGroup: null,
   selectedObjectGroup: null,
   selectedObject: null,
+  selectedLogs: null,
   selectedLogCurveInfo: null,
   servers: [],
   currentSelected: null,
