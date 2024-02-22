@@ -1,27 +1,27 @@
 import { Switch, Typography } from "@equinor/eds-core-react";
-import React, { useContext, useEffect, useState } from "react";
-import { timeFromMinutesToMilliseconds } from "../../contexts/curveThreshold";
-import NavigationContext from "../../contexts/navigationContext";
-import OperationContext from "../../contexts/operationContext";
-import OperationType from "../../contexts/operationType";
-import LogCurveInfo, { isNullOrEmptyIndex } from "../../models/logCurveInfo";
-import { measureToString } from "../../models/measure";
-import { truncateAbortHandler } from "../../services/apiClient";
-import { getContextMenuPosition } from "../ContextMenus/ContextMenu";
-import LogCurveInfoContextMenu, {
-  LogCurveInfoContextMenuProps
-} from "../ContextMenus/LogCurveInfoContextMenu";
-import formatDateString from "../DateFormatter";
-import { CommonPanelContainer } from "./CurveValuesView";
+import { CommonPanelContainer } from "components/ContentViews/CurveValuesView";
 import {
   ContentTable,
   ContentTableColumn,
   ContentTableRow,
   ContentType
-} from "./table";
+} from "components/ContentViews/table";
+import { getContextMenuPosition } from "components/ContextMenus/ContextMenu";
+import LogCurveInfoContextMenu, {
+  LogCurveInfoContextMenuProps
+} from "components/ContextMenus/LogCurveInfoContextMenu";
+import formatDateString from "components/DateFormatter";
+import { timeFromMinutesToMilliseconds } from "contexts/curveThreshold";
+import NavigationContext from "contexts/navigationContext";
+import OperationContext from "contexts/operationContext";
+import OperationType from "contexts/operationType";
+import LogCurveInfo, { isNullOrEmptyIndex } from "models/logCurveInfo";
 import LogObjectService from "../../services/logObjectService";
 import Wellbore from "../../models/wellbore";
-import Well from "../../models/well";
+import { measureToString } from "models/measure";
+import React, { useContext, useEffect, useState } from "react";
+import { truncateAbortHandler } from "services/apiClient";
+import LogCurvePriorityService from "services/logCurvePriorityService";
 
 export interface LogCurveInfoRow extends ContentTableRow {
   uid: string;
@@ -40,7 +40,6 @@ export interface LogCurveInfoRow extends ContentTableRow {
   isActive: boolean;
   logCurveInfo: LogCurveInfo;
 }
-
 export const LogCurveInfoListView = (): React.ReactElement => {
   const { navigationState, dispatchNavigation } = useContext(NavigationContext);
   const {
@@ -59,6 +58,9 @@ export const LogCurveInfoListView = (): React.ReactElement => {
   const isDepthIndex = !!logCurveInfoList?.[0]?.maxDepthIndex;
   const [isFetchingData, setIsFetchingData] = useState<boolean>(true);
   const [hideEmptyMnemonics, setHideEmptyMnemonics] = useState<boolean>(false);
+  const [showOnlyPrioritizedCurves, setShowOnlyPrioritizedCurves] =
+    useState<boolean>(false);
+  const [prioritizedCurves, setPrioritizedCurves] = useState<string[]>([]);
 
   useEffect(() => {
     setIsFetchingData(true);
@@ -76,7 +78,19 @@ export const LogCurveInfoListView = (): React.ReactElement => {
         setIsFetchingData(false);
       };
 
+      const getLogCurvePriority = async () => {
+        const prioritizedCurves =
+          await LogCurvePriorityService.getPrioritizedCurves(
+            selectedWell.uid,
+            selectedWellbore.uid,
+            controller.signal
+          );
+        setPrioritizedCurves(prioritizedCurves);
+      };
+
       getLogCurveInfo().catch(truncateAbortHandler);
+      getLogCurvePriority().catch(truncateAbortHandler);
+      setShowOnlyPrioritizedCurves(false);
 
       return () => {
         controller.abort();
@@ -95,7 +109,9 @@ export const LogCurveInfoListView = (): React.ReactElement => {
       dispatchNavigation,
       selectedLogs,
       selectedServer,
-      servers
+      servers,
+      prioritizedCurves,
+      setPrioritizedCurves
     };
     const position = getContextMenuPosition(event);
     dispatchOperation({
@@ -160,6 +176,8 @@ export const LogCurveInfoListView = (): React.ReactElement => {
           unit: logCurveInfo.unit,
           sensorOffset: measureToString(logCurveInfo.sensorOffset),
           mnemAlias: logCurveInfo.mnemAlias,
+          traceState: logCurveInfo.traceState,
+          nullValue: logCurveInfo.nullValue,
           logUid: selectedLogs[0].uid,
           wellUid: selectedWell.uid,
           wellboreUid: selectedWellbore.uid,
@@ -215,6 +233,13 @@ export const LogCurveInfoListView = (): React.ReactElement => {
       property: "mnemonic",
       label: "mnemonic",
       type: ContentType.String,
+      filterFn: (row) => {
+        return (
+          !showOnlyPrioritizedCurves ||
+          prioritizedCurves.includes(row.original.mnemonic) ||
+          row.original.mnemonic === selectedLogs[0].indexCurve // Always show index curve
+        );
+      },
       toolTip: ToolTip(selectedWell, selectedWellbore)
     },
     {
@@ -246,6 +271,8 @@ export const LogCurveInfoListView = (): React.ReactElement => {
       type: ContentType.Measure
     },
     { property: "mnemAlias", label: "mnemAlias", type: ContentType.String },
+    { property: "traceState", label: "traceState", type: ContentType.String },
+    { property: "nullValue", label: "nullValue", type: ContentType.String },
     { property: "uid", label: "uid", type: ContentType.String }
   ];
 
@@ -256,6 +283,16 @@ export const LogCurveInfoListView = (): React.ReactElement => {
         onChange={() => setHideEmptyMnemonics(!hideEmptyMnemonics)}
       />
       <Typography>Hide Empty Curves</Typography>
+    </CommonPanelContainer>,
+    <CommonPanelContainer key="showPriority">
+      <Switch
+        checked={showOnlyPrioritizedCurves}
+        disabled={prioritizedCurves.length === 0 && !showOnlyPrioritizedCurves}
+        onChange={() =>
+          setShowOnlyPrioritizedCurves(!showOnlyPrioritizedCurves)
+        }
+      />
+      <Typography>Show Only Prioritized Curves</Typography>
     </CommonPanelContainer>
   ];
 

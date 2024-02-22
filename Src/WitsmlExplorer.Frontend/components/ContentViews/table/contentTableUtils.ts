@@ -1,7 +1,7 @@
 import { Row, Table } from "@tanstack/react-table";
 import { VirtualItem } from "@tanstack/react-virtual";
+import { ContentType } from "components/ContentViews/table";
 import React, { useEffect } from "react";
-import { ContentType } from "./tableParts";
 
 export const selectId = "select";
 export const expanderId = "expander";
@@ -79,7 +79,7 @@ export const toggleRow = (
     const toIndex = Math.max(sortedPreviousIndex, sortedCurrentIndex);
     const newSelections: { [index: string]: boolean } = {};
     for (let i = fromIndex; i <= toIndex; i++) {
-      newSelections[sortedRows[i].index] = true;
+      newSelections[sortedRows[i].id ?? sortedRows[i].index] = true;
     }
     table.setRowSelection({
       ...newSelections,

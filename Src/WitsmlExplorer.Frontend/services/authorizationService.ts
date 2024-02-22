@@ -1,16 +1,16 @@
+import { UpdateServerAction } from "contexts/modificationActions";
+import ModificationType from "contexts/modificationType";
+import { ErrorDetails } from "models/errorDetails";
+import { Server } from "models/server";
+import { ApiClient, throwError } from "services/apiClient";
+import { AuthorizationClient } from "services/authorizationClient";
 import { SimpleEventDispatcher } from "ste-simple-events";
-import { UpdateServerAction } from "../contexts/modificationActions";
-import ModificationType from "../contexts/modificationType";
-import { ErrorDetails } from "../models/errorDetails";
-import { Server } from "../models/server";
 import {
   STORAGE_KEEP_SERVER_CREDENTIALS,
   getLocalStorageItem,
   removeLocalStorageItem,
   setLocalStorageItem
-} from "../tools/localStorageHelpers";
-import { ApiClient, throwError } from "./apiClient";
-import { AuthorizationClient } from "./authorizationClient";
+} from "tools/localStorageHelpers";
 
 export interface BasicServerCredentials {
   server: Server;
@@ -148,6 +148,23 @@ class AuthorizationService {
   public async deauthorize(abortSignal?: AbortSignal): Promise<any> {
     const response = await ApiClient.get(
       `/api/credentials/deauthorize`,
+      abortSignal
+    );
+    if (!response.ok) {
+      const { message }: ErrorDetails = await response.json();
+      throwError(response.status, message);
+    }
+  }
+
+  public async verifyuserisloggedin(
+    serverUrl: string,
+    userName: string,
+    abortSignal?: AbortSignal
+  ): Promise<any> {
+    const response = await ApiClient.get(
+      `/api/credentials/verifyuserisloggedin/${encodeURIComponent(
+        serverUrl
+      )}/${userName}`,
       abortSignal
     );
     if (!response.ok) {

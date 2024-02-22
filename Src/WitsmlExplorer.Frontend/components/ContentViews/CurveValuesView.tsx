@@ -1,6 +1,41 @@
-import { Switch, Typography } from "@equinor/eds-core-react";
+import { Radio, Switch, Typography } from "@equinor/eds-core-react";
 import { Button } from "@material-ui/core";
+import { CSSProperties } from "@material-ui/core/styles/withStyles";
+import {
+  MILLIS_IN_SECOND,
+  SECONDS_IN_MINUTE,
+  WITSML_INDEX_TYPE_DATE_TIME,
+  WITSML_LOG_ORDERTYPE_DECREASING
+} from "components/Constants";
+import { CurveValuesPlot } from "components/ContentViews/CurveValuesPlot";
+import EditNumber from "components/ContentViews/EditNumber";
+import EditSelectedLogCurveInfo from "components/ContentViews/EditSelectedLogCurveInfo";
+import { LogCurveInfoRow } from "components/ContentViews/LogCurveInfoListView";
+import {
+  ContentTable,
+  ContentTableColumn,
+  ContentTableRow,
+  ContentType,
+  ExportableContentTableColumn,
+  Order
+} from "components/ContentViews/table";
+import { getContextMenuPosition } from "components/ContextMenus/ContextMenu";
+import MnemonicsContextMenu from "components/ContextMenus/MnemonicsContextMenu";
+import formatDateString from "components/DateFormatter";
+import ConfirmModal from "components/Modals/ConfirmModal";
+import ProgressSpinner from "components/ProgressSpinner";
+import NavigationContext from "contexts/navigationContext";
+import OperationContext from "contexts/operationContext";
+import { DispatchOperation } from "contexts/operationStateReducer";
+import OperationType from "contexts/operationType";
+import useExport from "hooks/useExport";
 import orderBy from "lodash/orderBy";
+import {
+  DeleteLogCurveValuesJob,
+  IndexRange
+} from "models/jobs/deleteLogCurveValuesJob";
+import LogObject, { indexToNumber } from "models/logObject";
+import { toObjectReference } from "models/objectOnWellbore";
 import React, {
   useCallback,
   useContext,
@@ -9,48 +44,15 @@ import React, {
   useRef,
   useState
 } from "react";
+import { truncateAbortHandler } from "services/apiClient";
+import LogObjectService from "services/logObjectService";
 import styled from "styled-components";
-import NavigationContext from "../../contexts/navigationContext";
-import OperationContext from "../../contexts/operationContext";
-import OperationType from "../../contexts/operationType";
-import useExport from "../../hooks/useExport";
-import {
-  DeleteLogCurveValuesJob,
-  IndexRange
-} from "../../models/jobs/deleteLogCurveValuesJob";
 import {
   CurveSpecification,
   LogData,
   LogDataRequestQuery,
   LogDataRow
 } from "../../models/logData";
-import LogObject, { indexToNumber } from "../../models/logObject";
-import { toObjectReference } from "../../models/objectOnWellbore";
-import { truncateAbortHandler } from "../../services/apiClient";
-import LogObjectService from "../../services/logObjectService";
-import {
-  MILLIS_IN_SECOND,
-  SECONDS_IN_MINUTE,
-  WITSML_INDEX_TYPE_DATE_TIME,
-  WITSML_LOG_ORDERTYPE_DECREASING
-} from "../Constants";
-import { getContextMenuPosition } from "../ContextMenus/ContextMenu";
-import MnemonicsContextMenu from "../ContextMenus/MnemonicsContextMenu";
-import formatDateString from "../DateFormatter";
-import ConfirmModal from "../Modals/ConfirmModal";
-import ProgressSpinner from "../ProgressSpinner";
-import { CurveValuesPlot } from "./CurveValuesPlot";
-import EditNumber from "./EditNumber";
-import EditSelectedLogCurveInfo from "./EditSelectedLogCurveInfo";
-import { LogCurveInfoRow } from "./LogCurveInfoListView";
-import {
-  ContentTable,
-  ContentTableColumn,
-  ContentTableRow,
-  ContentType,
-  ExportableContentTableColumn,
-  Order
-} from "./table";
 
 const TIME_INDEX_START_OFFSET = SECONDS_IN_MINUTE * 20; // offset before log end index that defines the start index for streaming (in seconds).
 const DEPTH_INDEX_START_OFFSET = 20; // offset before log end index that defines the start index for streaming.
@@ -60,6 +62,12 @@ const DEFAULT_REFRESH_DELAY = 5.0; // seconds
 const AUTO_REFRESH_TIMEOUT = 5.0; // minutes
 
 interface CurveValueRow extends LogDataRow, ContentTableRow {}
+
+enum DownloadOptions {
+  All = "All",
+  IntervalOfData = "IntervalOfData",
+  SelectedIndexValues = "SelectedIndexValues"
+}
 
 export const CurveValuesView = (): React.ReactElement => {
   const {
@@ -93,6 +101,15 @@ export const CurveValuesView = (): React.ReactElement => {
   const stopAutoRefreshTimer = useRef<ReturnType<typeof setTimeout>>();
   const selectedLog = selectedObject as LogObject;
   const { exportData, exportOptions } = useExport();
+  let downloadOptions: DownloadOptions = DownloadOptions.IntervalOfData;
+
+  const onChangeDownloadOption = (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const selectedValue = event.target.value;
+    const enumToString = selectedValue as DownloadOptions;
+    downloadOptions = enumToString;
+  };
 
   const onRowSelectionChange = useCallback(
     (rows: CurveValueRow[]) => setSelectedRows(rows),
@@ -179,6 +196,74 @@ export const CurveValuesView = (): React.ReactElement => {
     },
     [getIndexRanges, toObjectReference]
   );
+
+  const executeExport = () => {
+    switch (downloadOptions) {
+      case DownloadOptions.All:
+        exportAll();
+        displayDownloadProgress(dispatchOperation);
+        break;
+      case DownloadOptions.IntervalOfData:
+        exportSelectedIndexRange();
+        break;
+      case DownloadOptions.SelectedIndexValues:
+        exportSelectedDataPoints();
+    }
+  };
+
+  const exportAll = useCallback(async () => {
+    const startIndexIsInclusive = !autoRefresh;
+    controller.current = new AbortController();
+
+    const requestPayload = Object.entries(
+      groupBy(selectedLogCurveInfo, (i) => i.logName)
+    );
+    const payLoad: LogDataRequestQuery[] = requestPayload.map(
+      (i) =>
+        new LogDataRequestQuery(
+          i[0],
+          i[1].map((j) => j.mnemonic)
+        )
+    );
+
+    const logData: LogData = await LogObjectService.getLogData(
+      selectedWell.uid,
+      selectedWellbore.uid,
+      payLoad,
+      startIndexIsInclusive,
+      selectedLog.startIndex,
+      selectedLog.endIndex,
+      true,
+      controller.current.signal
+    );
+
+    const logDataRows = logData.data.map((data) => {
+      const row: CurveValueRow = {
+        id: String(data[selectedLog.indexCurve]),
+        ...data
+      };
+      return row;
+    });
+    const exportColumns = columns
+      .map((column) => `${column.columnOf.mnemonic}[${column.columnOf.unit}]`)
+      .join(exportOptions.separator);
+
+    const data = orderBy(logDataRows, getComparatorByColumn(columns[0]), [
+      Order.Ascending,
+      Order.Ascending
+    ]) //Sorted because order is important when importing data
+      .map((row) =>
+        columns
+          .map((col) => row[col.columnOf.mnemonic] as string)
+          .join(exportOptions.separator)
+      )
+      .join(exportOptions.newLineCharacter);
+    exportData(
+      `${selectedWellbore.name}-${selectedLog.name}`,
+      exportColumns,
+      data
+    );
+  }, [columns]);
 
   const exportSelectedIndexRange = useCallback(() => {
     const exportColumns = columns
@@ -374,18 +459,92 @@ export const CurveValuesView = (): React.ReactElement => {
     }
   };
 
+  const displayConfirmation = (dispatchOperation: DispatchOperation) => {
+    const confirmation = (
+      <ConfirmModal
+        heading={"Download"}
+        content={
+          <>
+            <span>Choose download option?</span>
+            <label style={alignLayout}>
+              <Radio
+                name="group"
+                value={DownloadOptions.IntervalOfData}
+                id={DownloadOptions.IntervalOfData}
+                onChange={onChangeDownloadOption}
+                defaultChecked
+              />
+              Download shown interval
+            </label>
+            <label style={alignLayout}>
+              <Radio
+                name="group"
+                id={DownloadOptions.SelectedIndexValues}
+                value={DownloadOptions.SelectedIndexValues}
+                onChange={onChangeDownloadOption}
+                disabled={!selectedRows.length}
+              />
+              Download selected
+            </label>
+            <label style={alignLayout}>
+              <Radio
+                name="group"
+                id={DownloadOptions.All}
+                value={DownloadOptions.All}
+                onChange={onChangeDownloadOption}
+              />
+              Download all data
+            </label>
+          </>
+        }
+        onConfirm={() => {
+          dispatchOperation({ type: OperationType.HideModal });
+          executeExport();
+        }}
+        confirmText={"OK"}
+        switchButtonPlaces={true}
+      />
+    );
+    dispatchOperation({
+      type: OperationType.DisplayModal,
+      payload: confirmation
+    });
+  };
+
+  const displayDownloadProgress = (dispatchOperation: DispatchOperation) => {
+    const dowloadProgress = (
+      <ConfirmModal
+        heading={"Download of data in progress"}
+        content={
+          <>
+            You can close that window. File will be available in the jobs view
+            when ready.
+          </>
+        }
+        onConfirm={() => {
+          dispatchOperation({ type: OperationType.HideModal });
+        }}
+        confirmText={"OK"}
+        showCancelButton={false}
+        switchButtonPlaces={true}
+      />
+    );
+    dispatchOperation({
+      type: OperationType.DisplayModal,
+      payload: dowloadProgress
+    });
+  };
+
+  function groupBy<T>(arr: T[], fn: (item: T) => any) {
+    return arr.reduce<Record<string, T[]>>((prev, curr) => {
+      const groupKey = fn(curr);
+      const group = prev[groupKey] || [];
+      group.push(curr);
+      return { ...prev, [groupKey]: group };
+    }, {});
+  }
+
   const getLogData = async (startIndex: string, endIndex: string) => {
-    //const mnemonics = selectedLogCurveInfo.map((lci) => lci.mnemonic);
-
-    function groupBy<T>(arr: T[], fn: (item: T) => any) {
-      return arr.reduce<Record<string, T[]>>((prev, curr) => {
-        const groupKey = fn(curr);
-        const group = prev[groupKey] || [];
-        group.push(curr);
-        return { ...prev, [groupKey]: group };
-      }, {});
-    }
-
     const requestPayload = Object.entries(
       groupBy(selectedLogCurveInfo, (i) => i.logName)
     );
@@ -406,6 +565,7 @@ export const CurveValuesView = (): React.ReactElement => {
       startIndexIsInclusive,
       startIndex,
       endIndex,
+      false,
       controller.current.signal
     );
     if (logData && logData.curveSpecifications && logData.data) {
@@ -430,16 +590,9 @@ export const CurveValuesView = (): React.ReactElement => {
       <Button
         key="downloadall"
         disabled={isLoading}
-        onClick={() => exportSelectedIndexRange()}
+        onClick={() => displayConfirmation(dispatchOperation)}
       >
         Download all as .csv
-      </Button>,
-      <Button
-        key="downloadselected"
-        disabled={isLoading || !selectedRows.length}
-        onClick={() => exportSelectedDataPoints()}
-      >
-        Download selected as .csv
       </Button>
     ],
     [
@@ -453,6 +606,7 @@ export const CurveValuesView = (): React.ReactElement => {
   if (!selectedLog || !selectedLogCurveInfo) return null;
   return (
     <>
+      {selectedRows.length}
       <ContentContainer>
         <CommonPanelContainer>
           <EditSelectedLogCurveInfo
@@ -615,3 +769,8 @@ const ContentContainer = styled.div`
   flex-direction: column;
   height: 100%;
 `;
+
+const alignLayout: CSSProperties = {
+  display: "flex",
+  alignItems: "center"
+};

@@ -1,8 +1,8 @@
-import { ErrorDetails } from "../models/errorDetails";
+import { ErrorDetails } from "models/errorDetails";
 import { LogData, LogDataRequestQuery } from "../models/logData";
-import { ApiClient } from "./apiClient";
-import AuthorizationService from "./authorizationService";
-import NotificationService from "./notificationService";
+import { ApiClient } from "services/apiClient";
+import AuthorizationService from "services/authorizationService";
+import NotificationService from "services/notificationService";
 import LogCurveInfo from "../models/logCurveInfo";
 
 export default class LogObjectService {
@@ -13,13 +13,15 @@ export default class LogObjectService {
     startIndexIsInclusive: boolean,
     startIndex: string,
     endIndex: string,
+    loadAllData: boolean,
     abortSignal: AbortSignal
   ): Promise<LogData> {
     if (requestData.length === 0) return;
     const params = [
       `startIndex=${encodeURIComponent(startIndex)}`,
       `endIndex=${encodeURIComponent(endIndex)}`,
-      `startIndexIsInclusive=${startIndexIsInclusive}`
+      `startIndexIsInclusive=${startIndexIsInclusive}`,
+      `loadAllData=${loadAllData}`
     ];
     const pathName = `/api/wells/${wellUid}/wellbores/${wellboreUid}/multilogdata?${params.join(
       "&"

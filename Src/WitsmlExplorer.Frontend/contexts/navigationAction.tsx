@@ -13,7 +13,7 @@ import {
   UpdateWellboreObjectsAction,
   UpdateWellborePartialAction,
   UpdateWellsAction
-} from "./modificationActions";
+} from "contexts/modificationActions";
 import {
   CollapseTreeNodeChildrenAction,
   ExpandTreeNodesAction,
@@ -31,7 +31,7 @@ import {
   SelectWellboreAction,
   SetCurveThresholdAction,
   ToggleTreeNodeAction
-} from "./navigationActions";
+} from "contexts/navigationActions";
 
 export type NavigationAction =
   | AddServerAction

@@ -1,18 +1,18 @@
-import React, { useContext } from "react";
-import NavigationContext from "../../contexts/navigationContext";
-import NavigationType from "../../contexts/navigationType";
-import OperationContext from "../../contexts/operationContext";
-import OperationType from "../../contexts/operationType";
-import LogObject from "../../models/logObject";
-import Well from "../../models/well";
-import Wellbore from "../../models/wellbore";
 import {
   getContextMenuPosition,
   preventContextMenuPropagation
-} from "../ContextMenus/ContextMenu";
-import LogObjectContextMenu from "../ContextMenus/LogObjectContextMenu";
-import { ObjectContextMenuProps } from "../ContextMenus/ObjectMenuItems";
-import TreeItem from "./TreeItem";
+} from "components/ContextMenus/ContextMenu";
+import LogObjectContextMenu from "components/ContextMenus/LogObjectContextMenu";
+import { ObjectContextMenuProps } from "components/ContextMenus/ObjectMenuItems";
+import TreeItem from "components/Sidebar/TreeItem";
+import NavigationContext from "contexts/navigationContext";
+import NavigationType from "contexts/navigationType";
+import OperationContext from "contexts/operationContext";
+import OperationType from "contexts/operationType";
+import LogObject from "models/logObject";
+import Well from "models/well";
+import Wellbore from "models/wellbore";
+import React, { useContext } from "react";
 
 interface LogItemProps {
   log: LogObject;

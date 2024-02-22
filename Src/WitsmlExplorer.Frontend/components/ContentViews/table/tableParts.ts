@@ -11,6 +11,7 @@ export interface ContentTableColumn {
   type: ContentType;
   filterFn?: FilterFn<any>;
   toolTip?: React.ReactNode;
+  width?: number;
 }
 
 export interface ContentTableRow {
