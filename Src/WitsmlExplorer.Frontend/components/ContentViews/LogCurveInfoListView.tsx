@@ -22,6 +22,7 @@ import { measureToString } from "models/measure";
 import React, { useContext, useEffect, useState } from "react";
 import { truncateAbortHandler } from "services/apiClient";
 import LogCurvePriorityService from "services/logCurvePriorityService";
+import Well from "../../models/well";
 
 export interface LogCurveInfoRow extends ContentTableRow {
   uid: string;

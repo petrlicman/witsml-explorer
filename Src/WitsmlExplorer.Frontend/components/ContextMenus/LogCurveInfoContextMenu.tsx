@@ -67,7 +67,7 @@ const LogCurveInfoContextMenu = (
     prioritizedCurves,
     setPrioritizedCurves
   } = props;
-
+  const selectedLog = selectedLogs[0];
   const onlyPrioritizedCurvesAreChecked = checkedLogCurveInfoRows.every(
     (row, index) =>
       prioritizedCurves.includes(row.mnemonic) ||
