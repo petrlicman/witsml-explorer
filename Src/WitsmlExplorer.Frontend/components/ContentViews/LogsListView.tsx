@@ -28,7 +28,6 @@ export const LogsListView = (): React.ReactElement => {
   const { navigationState, dispatchNavigation } = useContext(NavigationContext);
   const { selectedWellbore, selectedWell, selectedLogTypeGroup } =
     navigationState;
-
   const {
     dispatchOperation,
     operationState: { timeZone, dateTimeFormat }

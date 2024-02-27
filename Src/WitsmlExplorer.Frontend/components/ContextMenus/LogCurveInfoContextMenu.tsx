@@ -110,7 +110,7 @@ const LogCurveInfoContextMenu = (
     const logCurveInfoPropertiesModalProps = {
       logCurveInfo,
       dispatchOperation,
-      selectedLog: selectedLogs[0]
+      selectedLog: selectedLog
     };
     dispatchOperation({
       type: OperationType.DisplayModal,

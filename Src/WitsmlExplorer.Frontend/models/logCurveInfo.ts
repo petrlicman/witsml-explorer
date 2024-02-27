@@ -4,7 +4,7 @@ import Measure from "models/measure";
 export default interface LogCurveInfo {
   uid: string;
   mnemonic: string;
-  logName: string;
+  logUid: string;
   minDateTimeIndex?: string;
   minDepthIndex?: string;
   maxDateTimeIndex?: string;
@@ -23,6 +23,7 @@ export default interface LogCurveInfo {
 export function EmptyLogCurveInfo(): LogCurveInfo {
   return {
     uid: "",
+    logUid: "",
     mnemonic: "",
     minDateTimeIndex: null,
     minDepthIndex: null,

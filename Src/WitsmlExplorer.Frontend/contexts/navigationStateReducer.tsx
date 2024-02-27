@@ -365,7 +365,11 @@ const selectLogs = (
     selectedObject: object,
     objectType: ObjectType.Log,
     currentSelected: object,
-    currentProperties: getObjectOnWellboreProperties(object, ObjectType.Log)
+    currentProperties: getObjectOnWellboreProperties(
+      object,
+      ObjectType.Log,
+      selectedLogs.length > 1 ? selectedLogs.length + " logs" : undefined
+    )
   };
 };
 

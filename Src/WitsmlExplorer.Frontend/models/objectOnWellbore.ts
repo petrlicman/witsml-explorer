@@ -54,14 +54,18 @@ export const calculateObjectNodeId = (
 
 export const getObjectOnWellboreProperties = (
   objectOnWellbore: ObjectOnWellbore,
-  objectType: ObjectType
+  objectType: ObjectType,
+  objectName?: string
 ): Map<string, string> => {
-  return new Map([
+  const map = new Map([
     ["Well", objectOnWellbore.wellName],
     ["UID Well", objectOnWellbore.wellUid],
     ["Wellbore", objectOnWellbore.wellboreName],
     ["UID Wellbore", objectOnWellbore.wellboreUid],
-    [objectType.toString(), objectOnWellbore.name],
-    [`UID ${objectType.toString()}`, objectOnWellbore.uid]
+    [objectType.toString(), objectName ?? objectOnWellbore.name]
   ]);
+  if (!objectName) {
+    map.set(`UID ${objectType.toString()}`, objectOnWellbore.uid);
+  }
+  return map;
 };

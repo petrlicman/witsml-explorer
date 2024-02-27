@@ -21,6 +21,17 @@ export interface SelectIndexToDisplayModalProps {
   selectedLogCurveInfoRow: LogCurveInfoRow[];
 }
 
+function GetMax(arrayData: any[]) {
+  return arrayData.reduce(function (a, b) {
+    return a > b ? a : b;
+  });
+}
+function GetMin(arrayData: any[]) {
+  return arrayData.reduce(function (a, b) {
+    return a < b ? a : b;
+  });
+}
+
 const SelectIndexToDisplayModal = (
   props: SelectIndexToDisplayModalProps
 ): React.ReactElement => {
@@ -30,41 +41,32 @@ const SelectIndexToDisplayModal = (
     dispatchOperation,
     selectedLogs
   } = props;
-  const isTimeIndexed =
-    selectedLogs[0].indexType === WITSML_INDEX_TYPE_DATE_TIME;
+  const pivotLog = selectedLogs[0];
+  const isTimeIndexed = pivotLog.indexType === WITSML_INDEX_TYPE_DATE_TIME;
+  const isIncreasing = pivotLog.direction != WITSML_LOG_ORDERTYPE_DECREASING;
   const [log, setLog] = useState<LogObject>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const startIndexRow = selectedLogs.reduce(function (a, b) {
-    return a.direction == WITSML_LOG_ORDERTYPE_DECREASING
-      ? a.startIndex > b.startIndex
-        ? a
-        : b
-      : a.startIndex < b.startIndex
-      ? a
-      : b;
-  });
-  const endIndexRow = selectedLogs.reduce(function (a, b) {
-    return a.direction == WITSML_LOG_ORDERTYPE_DECREASING
-      ? a.endIndex < b.endIndex
-        ? a
-        : b
-      : a.endIndex > b.endIndex
-      ? a
-      : b;
-  });
-  const [startIndex, setStartIndex] = useState<string | number>(
-    isTimeIndexed
-      ? startIndexRow.startIndex
-      : indexToNumber(startIndexRow.startIndex)
+
+  const startIndexes = selectedLogs.map((i) =>
+    isTimeIndexed ? i.startIndex : indexToNumber(i.startIndex)
   );
-  const [endIndex, setEndIndex] = useState<string | number>(
-    isTimeIndexed ? endIndexRow.endIndex : indexToNumber(endIndexRow.endIndex)
+  const endIndexes = selectedLogs.map((i) =>
+    isTimeIndexed ? i.endIndex : indexToNumber(i.endIndex)
   );
+
+  const maxRangeValue = GetMax([GetMax(startIndexes), GetMax(endIndexes)]);
+  const minRangeValue = GetMin([GetMin(startIndexes), GetMin(endIndexes)]);
+
+  const startIndexRow = isIncreasing ? minRangeValue : maxRangeValue;
+  const endIndexRow = isIncreasing ? maxRangeValue : minRangeValue;
+
+  const [startIndex, setStartIndex] = useState<string | number>(startIndexRow);
+  const [endIndex, setEndIndex] = useState<string | number>(endIndexRow);
   const [confirmDisabled, setConfirmDisabled] = useState<boolean>();
 
   useEffect(() => {
-    setLog(selectedLogs[0]);
-  }, [selectedLogs[0]]);
+    setLog(pivotLog);
+  }, [pivotLog]);
 
   const onSubmit = async () => {
     setIsLoading(true);
@@ -88,31 +90,36 @@ const SelectIndexToDisplayModal = (
     setConfirmDisabled(!isValid);
   };
 
-  const pivotLog = selectedLogs[0];
   const correctDirectionOfLogs = selectedLogs.every(
     (i) => i.direction == pivotLog.direction
   );
+  const selectedLogNames = selectedLogCurveInfoRow.map((i) => i.mnemonic);
 
   return (
     <>
       {!correctDirectionOfLogs ? (
         <ModalDialog
-          heading={"Wrong mix of directions"}
+          heading={"Forbidden mix of logs"}
           isLoading={isLoading}
           onSubmit={onSubmit}
-          content={<div>WRONG</div>}
+          content={
+            <div>
+              It is not allowed to select mix of different type directions of
+              logs (increasing/decreasing)
+            </div>
+          }
         />
       ) : (
         log && (
           <ModalDialog
-            heading={`Display curve values within selected index range for ${log.name}`}
+            heading={`Display curve values within selected index range for ${selectedLogNames.toString()}`}
             content={
               <>
                 {isTimeIndexed ? (
                   <>
                     <AdjustDateTimeModal
-                      minDate={log.startIndex}
-                      maxDate={log.endIndex}
+                      minDate={String(startIndex)}
+                      maxDate={String(endIndex)}
                       isDescending={
                         log.direction == WITSML_LOG_ORDERTYPE_DECREASING
                       }
@@ -123,8 +130,8 @@ const SelectIndexToDisplayModal = (
                   </>
                 ) : (
                   <AdjustNumberRangeModal
-                    minValue={indexToNumber(log.startIndex)}
-                    maxValue={indexToNumber(log.endIndex)}
+                    minValue={indexToNumber(String(startIndex))}
+                    maxValue={indexToNumber(String(endIndex))}
                     isDescending={
                       log.direction == WITSML_LOG_ORDERTYPE_DECREASING
                     }

@@ -27,7 +27,6 @@ import Well from "../../models/well";
 export interface LogCurveInfoRow extends ContentTableRow {
   uid: string;
   mnemonic: string;
-  logName: string;
   minIndex: number | Date;
   maxIndex: number | Date;
   classWitsml: string;
@@ -154,11 +153,14 @@ export const LogCurveInfoListView = (): React.ReactElement => {
         const isActive =
           selectedLogs[0].objectGrowing &&
           calculateIsCurveActive(logCurveInfo, maxDepth);
+        const logName = selectedLogs.find(
+          (i) => i.uid == logCurveInfo.logUid
+        )?.name;
         return {
-          id: `${selectedLogs[0].uid}-${logCurveInfo.mnemonic}`,
+          id: `${logCurveInfo.logUid}-${logCurveInfo.mnemonic}`,
           uid: logCurveInfo.uid,
           mnemonic: logCurveInfo.mnemonic,
-          logName: logCurveInfo.logName,
+          logName: logName,
           minIndex: isDepthIndex
             ? logCurveInfo.minDepthIndex
             : formatDateString(
@@ -179,7 +181,7 @@ export const LogCurveInfoListView = (): React.ReactElement => {
           mnemAlias: logCurveInfo.mnemAlias,
           traceState: logCurveInfo.traceState,
           nullValue: logCurveInfo.nullValue,
-          logUid: selectedLogs[0].uid,
+          logUid: logCurveInfo.logUid,
           wellUid: selectedWell.uid,
           wellboreUid: selectedWellbore.uid,
           wellName: selectedWell.name,
