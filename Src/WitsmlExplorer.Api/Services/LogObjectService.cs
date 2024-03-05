@@ -125,7 +125,7 @@ namespace WitsmlExplorer.Api.Services
                 {
                     Uid = logCurveInfo.Uid,
                     Mnemonic = logCurveInfo.Mnemonic,
-                    LogName = logUid,
+                    LogUid = logUid,
                     ClassWitsml = logCurveInfo.ClassWitsml,
                     MaxDateTimeIndex = logCurveInfo.MaxDateTimeIndex,
                     MaxDepthIndex = logCurveInfo.MaxIndex?.Value,
@@ -227,8 +227,7 @@ namespace WitsmlExplorer.Api.Services
 
             }
 
-            var witsmlLog = new WitsmlLog();
-            witsmlLog.LogData = allLogData;
+            var witsmlLog = new WitsmlLog { LogData = allLogData };
             return witsmlLog;
         }
 

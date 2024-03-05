@@ -77,6 +77,8 @@ namespace WitsmlExplorer.Api.HttpHandlers
                 var logMnemonics = logMnemonicsGetRequest.Select(log => logObjectService.ReadLogData(wellUid, wellboreUid, log.LogUid, log.Mnemonics.ToList(), startIndexIsInclusive, startIndex, endIndex)).ToList();
                 var resultTask = await Task.WhenAll(logMnemonics);
                 var logRow = resultTask.FirstOrDefault();
+                /*MergeData(resultTask.Where(i => i.Data != null)
+                    .Select(i => i.Data).ToList());*/
                 if (logRow != null)
                 {
                     logRow.Data = resultTask.Where(i => i.Data != null).SelectMany(i => i.Data).ToList();
@@ -89,5 +91,14 @@ namespace WitsmlExplorer.Api.HttpHandlers
                 return TypedResults.BadRequest("Missing list of requested logs and mnemonics");
             }
         }
+
+        /*private static void MergeData(ICollection<ICollection<Dictionary<string, LogDataValue>>> data)
+        {
+            var mainRow = data.First();
+            foreach (ICollection<Dictionary<string, LogDataValue>> collection in data.Skip(1))
+            {
+                collection.First()
+            }
+        }*/
     }
 }
