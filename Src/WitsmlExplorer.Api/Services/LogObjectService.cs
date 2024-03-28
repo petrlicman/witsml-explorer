@@ -30,7 +30,7 @@ namespace WitsmlExplorer.Api.Services
         Task<LogObject> GetLog(string wellUid, string wellboreUid, string logUid, OptionsIn queryOptions);
         Task<ICollection<LogCurveInfo>> GetLogCurveInfo(string wellUid, string wellboreUid, string logUid);
         Task<ICollection<LogCurveInfo>> GetLogCurveInfo(string wellUid, string wellboreUid, IEnumerable<string> logUids);
-        Task<LogData> ReadLogData(string wellUid, string wellboreUid, string logUid, List<string> mnemonics, bool startIndexIsInclusive, string start, string end, bool loadAllData = false);
+        //Task<LogData> ReadLogData(string wellUid, string wellboreUid, string logUid, List<string> mnemonics, bool startIndexIsInclusive, string start, string end, bool loadAllData = false);
         Task<LogData> ReadLogData(string wellUid, string wellboreUid, string logUid, List<string> mnemonics, bool startIndexIsInclusive, string start, string end, bool loadAllData, CancellationToken? cancellationToken, IProgress<double> progressReporter = null);
     }
 
@@ -209,7 +209,7 @@ namespace WitsmlExplorer.Api.Services
                 Index.Start(witsmlLog).GetValueAsString(),
                 EndIndex = witsmlLog.EndIndex == null ? endIndex.GetValueAsString() :
                 Index.End(witsmlLog).GetValueAsString(),
-                    new CurveSpecification { Mnemonic = mnemonic, Unit = unit }).ToList(),
+                CurveSpecifications = curveSpecifications,
                 Data = GetDataDictionary(witsmlLog.LogData)
             };
         }
