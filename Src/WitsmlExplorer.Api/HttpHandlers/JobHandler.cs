@@ -12,6 +12,7 @@ using WitsmlExplorer.Api.Extensions;
 using WitsmlExplorer.Api.Jobs;
 using WitsmlExplorer.Api.Middleware;
 using WitsmlExplorer.Api.Models;
+using WitsmlExplorer.Api.Models.Reports;
 using WitsmlExplorer.Api.Services;
 
 namespace WitsmlExplorer.Api.HttpHandlers
@@ -88,6 +89,35 @@ namespace WitsmlExplorer.Api.HttpHandlers
                 return TypedResults.Unauthorized();
             }
             return TypedResults.Ok(jobCache.GetAllJobInfos());
+        }
+
+        public static IResult CancelJob(string jobId, IJobCache jobCache)
+        {
+            var job = jobCache.GetAllJobInfos().Where(x => x.Id == jobId).FirstOrDefault();
+            if (job != null && job.IsCancelable)
+            {
+                job.CancellationTokenSource.Cancel();
+                return TypedResults.Ok();
+            }
+            return TypedResults.NotFound();
+        }
+
+        [Produces(typeof(BaseReport))]
+        public static IResult GetReport(string jobId, IJobCache jobCache, HttpRequest httpRequest, IConfiguration configuration, ICredentialsService credentialsService)
+        {
+            EssentialHeaders eh = new(httpRequest);
+            bool useOAuth2 = StringHelpers.ToBoolean(configuration[ConfigConstants.OAuth2Enabled]);
+            string userName = useOAuth2 ? credentialsService.GetClaimFromToken(eh.GetBearerToken(), "upn") : eh.TargetUsername;
+            if (!useOAuth2)
+            {
+                credentialsService.VerifyUserIsLoggedIn(eh, ServerType.Target);
+            }
+            JobInfo job = jobCache.GetJobInfoById(jobId);
+            if (job.Username != userName && (!useOAuth2 || !IsAdminOrDeveloper(eh.GetBearerToken())))
+            {
+                return TypedResults.Forbid();
+            }
+            return TypedResults.Ok(job.Report);
         }
     }
 }

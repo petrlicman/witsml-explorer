@@ -1,4 +1,5 @@
-import { Button, Icon, Switch, Typography } from "@equinor/eds-core-react";
+import { Icon, Switch, Typography } from "@equinor/eds-core-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   ContentTable,
   ContentTableColumn,
@@ -10,11 +11,16 @@ import JobInfoContextMenu, {
 } from "components/ContextMenus/JobInfoContextMenu";
 import formatDateString from "components/DateFormatter";
 import { ReportModal } from "components/Modals/ReportModal";
+import { generateReport } from "components/ReportCreationHelper";
+import { Button } from "components/StyledComponents/Button";
 import OperationContext from "contexts/operationContext";
 import OperationType from "contexts/operationType";
+import { refreshJobInfoQuery } from "hooks/query/queryRefreshHelpers";
+import { useGetJobInfo } from "hooks/query/useGetJobInfo";
 import { useGetServers } from "hooks/query/useGetServers";
-import JobInfo from "models/jobs/jobInfo";
-import BaseReport from "models/reports/BaseReport";
+import useExport from "hooks/useExport";
+import JobStatus from "models/jobStatus";
+import ReportType from "models/reportType";
 import { Server } from "models/server";
 import {
   adminRole,
@@ -22,18 +28,8 @@ import {
   getUserAppRoles,
   msalEnabled
 } from "msal/MsalAuthProvider";
-import React, {
-  ChangeEvent,
-  useContext,
-  useEffect,
-  useMemo,
-  useState
-} from "react";
-import { useParams } from "react-router-dom";
+import React, { ChangeEvent, useContext, useMemo, useState } from "react";
 import JobService from "services/jobService";
-import NotificationService, {
-  Notification
-} from "services/notificationService";
 import styled from "styled-components";
 import { Colors } from "styles/Colors";
 
@@ -42,66 +38,17 @@ export const JobsView = (): React.ReactElement => {
     dispatchOperation,
     operationState: { timeZone, colors, dateTimeFormat }
   } = useContext(OperationContext);
-  const { serverUrl } = useParams();
+  const queryClient = useQueryClient();
   const { servers } = useGetServers();
-  const [jobInfos, setJobInfos] = useState<JobInfo[]>([]);
-  const [lastFetched, setLastFetched] = useState<string>(
-    new Date().toLocaleTimeString()
-  );
-  const [shouldRefresh, setShouldRefresh] = useState<boolean>(true);
   const [showAll, setShowAll] = useState(false);
+  const { jobInfos, isFetching, dataUpdatedAt } = useGetJobInfo(showAll, {
+    placeholderData: []
+  });
+  const lastFetched = dataUpdatedAt
+    ? new Date(dataUpdatedAt).toLocaleTimeString()
+    : "";
 
-  const fetchJobs = () => {
-    const abortController = new AbortController();
-    const getJobInfos = async () => {
-      const jobInfos = showAll
-        ? JobService.getAllJobInfos(abortController.signal)
-        : JobService.getUserJobInfos(abortController.signal);
-      setJobInfos(await jobInfos);
-      setLastFetched(new Date().toLocaleTimeString());
-    };
-
-    getJobInfos();
-
-    return function cleanup() {
-      abortController.abort();
-    };
-  };
-
-  useEffect(() => {
-    const eventHandler = (notification: Notification) => {
-      const shouldFetch =
-        notification.serverUrl.toString().toLowerCase() ===
-        serverUrl?.toLowerCase();
-      if (shouldFetch) {
-        setShouldRefresh(true);
-      }
-    };
-    const unsubscribeOnSnackbar =
-      NotificationService.Instance.snackbarDispatcherAsEvent.subscribe(
-        eventHandler
-      );
-    const unsubscribeOnAlert =
-      NotificationService.Instance.alertDispatcherAsEvent.subscribe(
-        eventHandler
-      );
-
-    return function cleanup() {
-      unsubscribeOnSnackbar();
-      unsubscribeOnAlert();
-    };
-  }, [serverUrl]);
-
-  useEffect(() => {
-    return setShouldRefresh(true);
-  }, [showAll, serverUrl]);
-
-  useEffect(() => {
-    if (shouldRefresh) {
-      setShouldRefresh(false);
-      fetchJobs();
-    }
-  }, [shouldRefresh]);
+  const { exportData } = useExport();
 
   const onContextMenu = (
     event: React.MouseEvent<HTMLLIElement>,
@@ -109,8 +56,7 @@ export const JobsView = (): React.ReactElement => {
   ) => {
     const contextMenuProps: JobInfoContextMenuProps = {
       dispatchOperation,
-      jobInfo: selectedItem.jobInfo,
-      setShouldRefresh
+      jobInfo: selectedItem.jobInfo
     };
     const position = getContextMenuPosition(event);
     dispatchOperation({
@@ -122,12 +68,25 @@ export const JobsView = (): React.ReactElement => {
     });
   };
 
-  const onClickReport = (report: BaseReport) => {
-    const reportModalProps = { report };
-    dispatchOperation({
-      type: OperationType.DisplayModal,
-      payload: <ReportModal {...reportModalProps} />
-    });
+  const onClickReport = async (jobId: string) => {
+    const report = await JobService.getReport(jobId);
+    if (report.downloadImmediately === true) {
+      const reportProperties = generateReport(
+        report.reportItems,
+        report.reportHeader
+      );
+      exportData(
+        report.title,
+        reportProperties.exportColumns,
+        reportProperties.data
+      );
+    } else {
+      const reportModalProps = { report };
+      dispatchOperation({
+        type: OperationType.DisplayModal,
+        payload: <ReportModal {...reportModalProps} />
+      });
+    }
   };
 
   const columns: ContentTableColumn[] = [
@@ -145,6 +104,7 @@ export const JobsView = (): React.ReactElement => {
       type: ContentType.String
     },
     { property: "status", label: "Status", type: ContentType.String },
+    { property: "cancel", label: "Cancel", type: ContentType.Component },
     { property: "report", label: "Report", type: ContentType.Component },
     {
       property: "failedReason",
@@ -165,6 +125,11 @@ export const JobsView = (): React.ReactElement => {
     { property: "username", label: "Ordered by", type: ContentType.String }
   ];
 
+  const cancelJob = async (jobId: string) => {
+    dispatchOperation({ type: OperationType.HideContextMenu });
+    JobService.cancelJob(jobId);
+  };
+
   const jobInfoRows = useMemo(
     () =>
       jobInfos
@@ -175,6 +140,20 @@ export const JobsView = (): React.ReactElement => {
             wellName: jobInfo.wellName,
             wellboreName: jobInfo.wellboreName,
             objectName: jobInfo.objectName,
+            status:
+              jobInfo.progress && jobInfo.status === JobStatus.Started
+                ? `${Math.round(jobInfo.progress * 100)}%`
+                : jobInfo.status,
+            cancel:
+              jobInfo.isCancelable === true && jobInfo.status === "Started" ? (
+                <StyledButton
+                  key="downloadall"
+                  variant="outlined"
+                  onClick={() => cancelJob(jobInfo.id)}
+                >
+                  <Icon name="clear" />
+                </StyledButton>
+              ) : null,
             startTime: formatDateString(
               jobInfo.startTime,
               timeZone,
@@ -187,11 +166,14 @@ export const JobsView = (): React.ReactElement => {
             ),
             targetServer: serverUrlToName(servers, jobInfo.targetServer),
             sourceServer: serverUrlToName(servers, jobInfo.sourceServer),
-            report: jobInfo.report ? (
-              <ReportButton onClick={() => onClickReport(jobInfo.report)}>
-                Report
-              </ReportButton>
-            ) : null,
+            report:
+              jobInfo.status === JobStatus.Finished ? (
+                <ReportButton onClick={() => onClickReport(jobInfo.id)}>
+                  {jobInfo.reportType === ReportType.File
+                    ? "Download File"
+                    : "Report"}
+                </ReportButton>
+              ) : null,
             jobInfo: jobInfo
           };
         })
@@ -203,15 +185,14 @@ export const JobsView = (): React.ReactElement => {
 
   const panelElements = [
     <Button
+      variant="ghost_icon"
       key="refreshJobs"
-      aria-disabled={shouldRefresh ? true : false}
-      aria-label={shouldRefresh ? "loading data" : null}
-      onClick={shouldRefresh ? undefined : () => setShouldRefresh(true)}
-      disabled={shouldRefresh}
-      colors={colors}
+      aria-disabled={isFetching ? true : false}
+      aria-label={isFetching ? "loading data" : null}
+      onClick={isFetching ? undefined : () => refreshJobInfoQuery(queryClient)}
+      disabled={isFetching}
     >
       <Icon name="refresh" />
-      Refresh
     </Button>,
     msalEnabled &&
     (getUserAppRoles().includes(adminRole) ||
@@ -222,6 +203,7 @@ export const JobsView = (): React.ReactElement => {
         label="Show all users' jobs"
         onChange={(e: ChangeEvent<HTMLInputElement>) => {
           setShowAll(e.target.checked);
+          refreshJobInfoQuery(queryClient);
         }}
       />
     ) : null,
@@ -259,6 +241,12 @@ const StyledSwitch = styled(Switch)<{ colors: Colors }>`
 const ReportButton = styled.div`
   text-decoration: underline;
   cursor: pointer;
+`;
+
+const StyledButton = styled(Button)`
+  &&& {
+    margin-left: 1.313em; height: 1.538em; color: red};
+  }
 `;
 
 export default JobsView;

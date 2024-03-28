@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Microsoft.Extensions.Logging;
@@ -20,9 +21,10 @@ namespace WitsmlExplorer.Api.Workers
     public class SpliceLogsWorker : BaseWorker<SpliceLogsJob>, IWorker
     {
         public JobType JobType => JobType.SpliceLogs;
+        private enum ProgressType { Splice, CreateLog }
 
         public SpliceLogsWorker(ILogger<SpliceLogsJob> logger, IWitsmlClientProvider witsmlClientProvider) : base(witsmlClientProvider, logger) { }
-        public override async Task<(WorkerResult, RefreshAction)> Execute(SpliceLogsJob job)
+        public override async Task<(WorkerResult, RefreshAction)> Execute(SpliceLogsJob job, CancellationToken? cancellationToken = null)
         {
             string wellUid = job.Logs.WellUid;
             string wellboreUid = job.Logs.WellboreUid;
@@ -47,6 +49,8 @@ namespace WitsmlExplorer.Api.Workers
                     Data = new() // Will be populated in the loop below
                 };
 
+                int totalIterations = logHeaders.Logs.SelectMany(l => l.LogCurveInfo.Skip(1)).Count();
+                int currentIteration = 0;
                 foreach (string logUid in logUids)
                 {
                     WitsmlLog logHeader = logHeaders.Logs.Find(l => l.Uid == logUid);
@@ -54,11 +58,14 @@ namespace WitsmlExplorer.Api.Workers
                     {
                         WitsmlLogData logData = await LogWorkerTools.GetLogDataForCurve(GetTargetWitsmlClientOrThrow(), logHeader, mnemonic, Logger);
                         newLogData = SpliceLogDataForCurve(newLogData, logData, mnemonic, isDepthLog);
+                        currentIteration++;
+                        double progress = (double)currentIteration / totalIterations;
+                        ReportProgress(job, ProgressType.Splice, progress);
                     }
                 }
 
                 await CreateNewLog(newLogHeader);
-                await AddDataToLog(wellUid, wellboreUid, newLogUid, newLogData);
+                await AddDataToLog(job, wellUid, wellboreUid, newLogUid, newLogData);
             }
             catch (ArgumentException e)
             {
@@ -74,6 +81,18 @@ namespace WitsmlExplorer.Api.Workers
             return (workerResult, refreshAction);
         }
 
+        private static void ReportProgress(SpliceLogsJob job, ProgressType progressType, double tentativeProgress)
+        {
+            var progress = progressType switch
+            {
+                ProgressType.Splice => tentativeProgress * 0.8,
+                ProgressType.CreateLog => 0.8 + tentativeProgress * 0.2,
+                _ => throw new ArgumentOutOfRangeException(nameof(progressType), progressType, null)
+            };
+            if (job.JobInfo != null) job.JobInfo.Progress = progress;
+            job.ProgressReporter?.Report(progress);
+        }
+
         private async Task<WitsmlLogs> GetLogHeaders(string wellUid, string wellboreUid, string[] logUids)
         {
             return await LogWorkerTools.GetLogsByIds(GetTargetWitsmlClientOrThrow(), wellUid, wellboreUid, logUids, ReturnElements.HeaderOnly);
@@ -82,8 +101,8 @@ namespace WitsmlExplorer.Api.Workers
         private static void VerifyLogHeaders(WitsmlLogs logHeaders)
         {
             if (logHeaders.Logs.IsNullOrEmpty()) throw new ArgumentException("Log headers could not be fetched");
-            var direction = logHeaders.Logs.FirstOrDefault().Direction;
-            if (logHeaders.Logs.Any(log => log.Direction != direction)) throw new ArgumentException("Direction must match for all logs");
+            var isIncreasing = logHeaders.Logs.FirstOrDefault().IsIncreasing();
+            if (logHeaders.Logs.Any(log => log.IsIncreasing() != isIncreasing)) throw new ArgumentException("Direction must match for all logs");
             var indexType = logHeaders.Logs.FirstOrDefault().IndexType;
             if (logHeaders.Logs.Any(log => log.IndexType != indexType)) throw new ArgumentException("Index type must match for all logs");
         }
@@ -173,7 +192,7 @@ namespace WitsmlExplorer.Api.Workers
             return newLogCurveInfo;
         }
 
-        private async Task AddDataToLog(string wellUid, string wellboreUid, string logUid, WitsmlLogData data)
+        private async Task AddDataToLog(SpliceLogsJob job, string wellUid, string wellboreUid, string logUid, WitsmlLogData data)
         {
             var batchSize = 5000; // Use maxDataNodes and maxDataPoints to calculate batchSize when supported by the API.
             var dataRows = data.Data;
@@ -183,6 +202,7 @@ namespace WitsmlExplorer.Api.Workers
                 WitsmlLogs copyNewCurvesQuery = CreateAddLogDataRowsQuery(wellUid, wellboreUid, logUid, data, currentLogData);
                 QueryResult result = await RequestUtils.WithRetry(async () => await GetTargetWitsmlClientOrThrow().UpdateInStoreAsync(copyNewCurvesQuery), Logger);
                 if (!result.IsSuccessful) throw new ArgumentException($"Could not add log data to the new log. {result.Reason}");
+                ReportProgress(job, ProgressType.CreateLog, (i + batchSize) / (double)dataRows.Count);
             }
         }
 

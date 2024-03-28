@@ -4,6 +4,7 @@ import { render } from "@testing-library/react";
 import { ConnectedServerProvider } from "contexts/connectedServerContext";
 import { CurveThresholdProvider } from "contexts/curveThresholdContext";
 import { Filter, FilterContextProvider } from "contexts/filter";
+import { LoggedInUsernamesProvider } from "contexts/loggedInUsernamesContext";
 import OperationContext from "contexts/operationContext";
 import {
   DateTimeFormat,
@@ -33,6 +34,7 @@ import ObjectOnWellbore from "models/objectOnWellbore";
 import ObjectSearchResult from "models/objectSearchResult";
 import { ObjectType, ObjectTypeToModel } from "models/objectType";
 import RefNameString from "models/refNameString";
+import BaseReport from "models/reports/BaseReport";
 import Rig from "models/rig";
 import RiskObject from "models/riskObject";
 import { Server } from "models/server";
@@ -89,23 +91,25 @@ export function renderWithContexts(
           <OperationContext.Provider
             value={{ operationState, dispatchOperation }}
           >
-            <ConnectedServerProvider
-              initialConnectedServer={initialConnectedServer}
-            >
-              <CurveThresholdProvider>
-                <SidebarProvider>
-                  <ThemeProvider theme={getTheme(operationState.theme)}>
-                    <FilterContextProvider initialFilter={initialFilter}>
-                      <QueryContextProvider
-                        initialQueryState={initialQueryState}
-                      >
-                        <SnackbarProvider>{children}</SnackbarProvider>
-                      </QueryContextProvider>
-                    </FilterContextProvider>
-                  </ThemeProvider>
-                </SidebarProvider>
-              </CurveThresholdProvider>
-            </ConnectedServerProvider>
+            <LoggedInUsernamesProvider>
+              <ConnectedServerProvider
+                initialConnectedServer={initialConnectedServer}
+              >
+                <CurveThresholdProvider>
+                  <SidebarProvider>
+                    <ThemeProvider theme={getTheme(operationState.theme)}>
+                      <FilterContextProvider initialFilter={initialFilter}>
+                        <QueryContextProvider
+                          initialQueryState={initialQueryState}
+                        >
+                          <SnackbarProvider>{children}</SnackbarProvider>
+                        </QueryContextProvider>
+                      </FilterContextProvider>
+                    </ThemeProvider>
+                  </SidebarProvider>
+                </CurveThresholdProvider>
+              </ConnectedServerProvider>
+            </LoggedInUsernamesProvider>
           </OperationContext.Provider>
         </QueryClientProvider>
       </MemoryRouter>
@@ -186,9 +190,23 @@ export function getJobInfo(overrides?: Partial<JobInfo>): JobInfo {
     startTime: "",
     endTime: "",
     killTime: "",
-    status: "",
+    status: null,
     failedReason: "",
-    report: null,
+    progress: 0,
+    isCancelable: false,
+    reportType: null,
+    ...overrides
+  };
+}
+
+export function getReport(overrides?: Partial<BaseReport>): BaseReport {
+  return {
+    title: "testTitle",
+    summary: "testSummary",
+    reportItems: [],
+    warningMessage: "",
+    downloadImmediately: false,
+    reportHeader: "",
     ...overrides
   };
 }
